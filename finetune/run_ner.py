@@ -8,6 +8,7 @@ import argparse
 import json
 import torch
 import torch.nn as nn
+from torchcrf import CRF
 import torch.nn.functional as F
 
 uer_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -33,10 +34,9 @@ class NerTagger(nn.Module):
         self.encoder = str2encoder[args.encoder](args)
         self.labels_num = args.labels_num
         self.output_layer = nn.Linear(args.hidden_size, self.labels_num)
-        self.crf_target = args.crf_target
         if args.crf_target:
-            from torchcrf import CRF
             self.crf = CRF(self.labels_num, batch_first=True)
+            self.crf_target = args.crf_target
             self.seq_length = args.seq_length
 
     def forward(self, src, tgt, seg):
@@ -69,7 +69,7 @@ class NerTagger(nn.Module):
             else:
                 return None, pred
         else:
-            tgt_mask = seg.contiguous().view(-1).float()
+            tgt_mask = seg.contiguous().view(-1).type(torch.uint8)
             logits = logits.contiguous().view(-1, self.labels_num)
             pred = logits.argmax(dim=-1)
             if tgt is not None:
